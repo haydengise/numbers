@@ -1,5 +1,5 @@
 // Offline support: app files come from cache first, fonts are cached the first time they load.
-const CACHE = 'nbh-v2';
+const CACHE = 'nbh-v3';
 const FILES = ['./', 'index.html', 'manifest.webmanifest', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', e => {

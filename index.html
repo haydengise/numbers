@@ -210,6 +210,38 @@ svg{display:block}
 @keyframes fade{from{opacity:0}to{opacity:1}}
 
 .toast{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:11px 16px;border-radius:14px;font-size:.9rem;font-weight:600;z-index:20;max-width:calc(100% - 32px);animation:rise .2s ease}
+
+/* adding: two ways in */
+.add-split{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--line)}
+.add-split button{display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 10px;color:var(--accent);font-weight:600}
+.add-split button+button{border-left:1px solid var(--line)}
+.add-split button:active{background:var(--raised)}
+/* notices */
+.notice{margin-top:18px;background:var(--accent-soft);color:var(--ink);border-radius:18px;padding:14px 16px;display:flex;gap:12px;align-items:flex-start;font-size:.9rem}
+.notice b{display:block;margin-bottom:2px}
+.notice p{margin:0;color:var(--muted)}
+.notice .x{margin-left:auto;color:var(--muted);font-size:1.2rem;line-height:1;padding:2px 4px}
+/* contact chooser */
+.c-tools{display:flex;gap:8px;align-items:center}
+.c-tools input{flex:1;min-width:0;font:inherit;padding:11px 13px;border-radius:12px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink)}
+.c-list{background:var(--surface);border-radius:18px;box-shadow:var(--shadow);overflow:hidden;max-height:52vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.c-person{padding:12px 16px 10px;border-top:1px solid var(--line)}
+.c-person:first-child{border-top:0}
+.c-name{font-weight:600;margin-bottom:6px;overflow-wrap:anywhere}
+.c-tel{display:flex;align-items:center;gap:12px;padding:7px 0;cursor:pointer;-webkit-user-select:none;user-select:none}
+.c-tel input{appearance:none;-webkit-appearance:none;width:24px;height:24px;border-radius:7px;border:2px solid var(--line);background:var(--surface);flex:none;display:grid;place-items:center;margin:0;cursor:pointer}
+.c-tel input:checked{background:var(--accent);border-color:var(--accent)}
+.c-tel input:checked::after{content:"";width:6px;height:11px;border:solid var(--accent-ink);border-width:0 2.5px 2.5px 0;transform:translateY(-1px) rotate(45deg)}
+.c-tel input:disabled{opacity:.35}
+.c-num{font-family:var(--f-num);font-size:.98rem;letter-spacing:.02em}
+.c-type{font-size:.75rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.08em}
+.c-done{font-size:.75rem;color:var(--good);font-weight:600;margin-left:auto}
+.c-more{padding:12px 16px;color:var(--muted);font-size:.85rem;text-align:center}
+.steps{margin:0;padding-left:20px;color:var(--muted);display:flex;flex-direction:column;gap:6px;font-size:.92rem}
+.steps b{color:var(--ink)}
+.filebtn{position:relative;overflow:hidden}
+.filebtn input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.sticky-acts{position:sticky;bottom:0;padding-top:10px;background:linear-gradient(to bottom,transparent,var(--bg) 30%)}
 @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -233,6 +265,7 @@ const ICON={
   back:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>',
   del:'<svg width="26" height="20" viewBox="0 0 28 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M9 2h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H9L2 10z"/><path d="M13 7l6 6M19 7l-6 6"/></svg>',
   eye:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+  person:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>',
   play:'<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>',
 };
 
@@ -269,35 +302,279 @@ const all=()=>Object.values(items);
 const dueList=()=>all().filter(i=>(i.due||0)<=Date.now()).sort((a,b)=>(a.due||0)-(b.due||0));
 
 /* ---------------- storage ---------------- */
-// Inside Claude the list lives in the account's private store; as a standalone site it lives on the device.
-const LKEY='nbh-items', SKEY='nbh-stats';
-function loadLocal(){
-  try{ items=JSON.parse(localStorage.getItem(LKEY)||'{}')||{}; stats=Object.assign(stats,JSON.parse(localStorage.getItem(SKEY)||'{}')); store='local'; }
-  catch(e){ items={}; store='memory'; }
+// Every change lands on this device first (localStorage plus an IndexedDB copy), then in the Claude
+// account's private store when the page runs inside Claude. When the two meet they merge by
+// last-changed time, with deletions remembered, so a list never shrinks because one side was empty.
+const LKEY='nbh-items', SKEY='nbh-stats', TKEY='nbh-deleted';
+let tombs={}, cloud=false, localOK=true, pending=new Set(), lastSaved=0;
+const stamp=it=>it?(it.updated||it.last||it.created||0):0;
+
+function readLocal(){
+  try{ return { items:JSON.parse(localStorage.getItem(LKEY)||'{}')||{}, stats:JSON.parse(localStorage.getItem(SKEY)||'null'),
+                tombs:JSON.parse(localStorage.getItem(TKEY)||'{}')||{} }; }
+  catch(e){ localOK=false; return {items:{},stats:null,tombs:{}}; }
 }
-function saveLocal(){ if(store!=='local') return; try{localStorage.setItem(LKEY,JSON.stringify(items));localStorage.setItem(SKEY,JSON.stringify(stats));}catch(e){store='memory';toast('Couldn’t save. Storage is full or blocked.');} }
+// Fold in whatever is already saved on this device (another tab or window may have added numbers)
+// before writing, so two open copies never overwrite each other.
+function foldDisk(){
+  const cur=readLocal(); let changed=false;
+  for(const [id,t] of Object.entries(cur.tombs)) if((tombs[id]||0)<t){ tombs[id]=t; changed=true; }
+  for(const [id,it] of Object.entries(cur.items)){
+    if(tombs[id]&&tombs[id]>=stamp(it)) continue;
+    if(!items[id]||stamp(it)>stamp(items[id])){ items[id]=it; changed=true; }
+  }
+  for(const id of Object.keys(items)) if(tombs[id]&&tombs[id]>=stamp(items[id])){ delete items[id]; changed=true; }
+  if(cur.stats&&(cur.stats.updated||0)>(stats.updated||0)){ stats=Object.assign({},stats,cur.stats); changed=true; }
+  return changed;
+}
+function writeLocal(){
+  foldDisk();
+  try{ localStorage.setItem(LKEY,JSON.stringify(items)); localStorage.setItem(SKEY,JSON.stringify(stats)); localStorage.setItem(TKEY,JSON.stringify(tombs)); localOK=true; }
+  catch(e){ localOK=false; }
+  idbPut({items,stats,tombs,savedAt:Date.now()});
+  lastSaved=Date.now();
+}
+window.addEventListener('storage',e=>{
+  if(e.key!==LKEY&&e.key!==TKEY&&e.key!==SKEY) return;
+  if(foldDisk()){ if(cloud) pushCloud(Object.keys(items)); if(view==='home'&&!sheet) render(); }
+});
+/* IndexedDB mirror: survives a localStorage failure and lets the list come back if one store is cleared. */
+function idbOpen(){ return new Promise((res,rej)=>{ try{ const r=indexedDB.open('numbers-by-heart',1); r.onupgradeneeded=()=>r.result.createObjectStore('kv'); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }catch(e){rej(e);} }); }
+let idbTimer=null;
+function idbPut(v){ clearTimeout(idbTimer); idbTimer=setTimeout(async()=>{ try{ const db=await idbOpen(); db.transaction('kv','readwrite').objectStore('kv').put(JSON.parse(JSON.stringify(v)),'state'); }catch(e){} },150); }
+async function idbGet(){ try{ const db=await idbOpen(); return await new Promise(res=>{ const r=db.transaction('kv').objectStore('kv').get('state'); r.onsuccess=()=>res(r.result||null); r.onerror=()=>res(null); }); }catch(e){ return null; } }
+
+function mergeIn(rItems,rStats,rTombs){
+  for(const [id,t] of Object.entries(rTombs||{})) tombs[id]=Math.max(tombs[id]||0,t);
+  const merged={}, push=[];
+  for(const id of new Set([...Object.keys(items),...Object.keys(rItems||{})])){
+    const L=items[id], R=rItems&&rItems[id];
+    const pick=!L?R:!R?L:(stamp(L)>stamp(R)?L:R);   // ties go to the account copy, so identical lists don't re-upload
+    if(!pick) continue;
+    if(tombs[id]&&tombs[id]>=stamp(pick)){ if(R) push.push(id); continue; }
+    merged[id]=pick;
+    if(pick!==R) push.push(id);
+  }
+  if(rStats&&(!stats.updated||(rStats.updated||0)>stats.updated)){ const {kind,...rest}=rStats; stats=Object.assign({},stats,rest); }
+  items=merged;
+  return push;
+}
+
 function persist(id){
-  if(store==='db'){
+  const now=Date.now();
+  if(id==='stats') stats.updated=now;
+  else if(items[id]) items[id].updated=now;
+  else tombs[id]=now;
+  writeLocal();
+  if(cloud) pushCloud([id]); else pending.add(id);
+}
+function pushCloud(ids){
+  for(const id of ids){
     const it=id==='stats'?{...stats,kind:'stats'}:items[id];
     chain=chain.then(()=>it?col.doc(id).set(JSON.parse(JSON.stringify(it))):col.doc(id).delete())
-      .catch(e=>toast(e&&e.code==='quota_exceeded'?'Storage is full. Delete a few numbers.':'Couldn’t save. Check your connection.'));
-  } else saveLocal();
+      .catch(e=>{ pending.add(id); if(e&&e.code==='quota_exceeded') toast('Your Claude storage is full. Delete a few numbers.'); });
+  }
+  if(ids.some(id=>id!=='stats'&&!items[id])){
+    chain=chain.then(()=>col.doc('deleted').set({ids:tombs})).catch(()=>{});
+  }
 }
+
 async function initStore(){
-  const c=window.claude;
-  if(!c||!c.use){ loadLocal(); render(); return; }
+  // 1. This device, instantly. Nothing waits on the network, so nothing typed early is lost.
+  const L=readLocal();
+  items=L.items; tombs=L.tombs; if(L.stats) stats=Object.assign(stats,L.stats);
+  if(!Object.keys(items).length){
+    const backup=await idbGet();
+    if(backup&&backup.items&&Object.keys(backup.items).length){
+      mergeIn(backup.items,backup.stats,backup.tombs); writeLocal();
+      { const n=Object.keys(items).length; toast('Recovered '+n+' number'+(n===1?'':'s')+' from this device’s backup copy.'); }
+    }
+  } else idbPut({items,stats,tombs,savedAt:Date.now()});
+  store=localOK?'local':'memory';
+  try{ navigator.storage&&navigator.storage.persist&&navigator.storage.persist(); }catch(e){}
+  render();
+
+  // 2. The Claude account, when this page runs inside Claude.
+  const c=window.claude; if(!c||!c.use) return;
   try{
     const [db,user]=await Promise.all([c.use('db'),c.use('user')]);
-    const id=user?await user.id():null;
-    if(!db||!id){ loadLocal(); render(); return; }
-    col=db.collection('data/users/'+id);
+    const uidv=user?await user.id():null;
+    if(!db||!uidv) return;
+    col=db.collection('data/users/'+uidv);
+    let first=true;
     col.onSnapshot(snap=>{
-      const next={};
-      snap.docs.forEach(d=>{ if(!d.exists) return; const v=d.data(); if(d.id==='stats') stats=Object.assign({},stats,v); else next[d.id]={...v,id:d.id}; });
-      items=next; store='db';
-      if(view==='home') render();
-    },()=>{ if(store!=='db'){ loadLocal(); render(); } else toast('Lost the connection to your saved list.'); });
-  }catch(e){ loadLocal(); render(); }
+      if(snap.metadata&&snap.metadata.fromCache&&first) return;    // wait for the server's answer before merging
+      const rItems={}; let rStats=null, rTombs={};
+      snap.docs.forEach(d=>{ if(!d.exists) return; const v=d.data();
+        if(d.id==='stats') rStats=v; else if(d.id==='deleted') rTombs=(v&&v.ids)||{}; else rItems[d.id]={...v,id:d.id}; });
+      const push=mergeIn(rItems,rStats,rTombs);
+      if(first){ first=false; cloud=true; store='db'; for(const id of pending) push.push(id); pending.clear();
+        if(!rStats||stats.updated>(rStats.updated||0)) push.push('stats'); }
+      writeLocal();
+      if(push.length) pushCloud([...new Set(push)]);
+      if(view==='home'&&!sheet) render();
+    },()=>{ if(cloud) toast('Lost the connection to your Claude account. Changes are still saved on this device.'); cloud=false; store=localOK?'local':'memory'; });
+  }catch(e){}
+}
+
+
+/* ---------------- device notes ---------------- */
+const isIOS=/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+const isHomeScreen=()=>window.navigator.standalone===true||(window.matchMedia&&matchMedia('(display-mode: standalone)').matches);
+const inClaude=()=>!!(window.claude&&window.claude.use);
+function notice(){
+  let dismissed=false; try{ dismissed=localStorage.getItem('nbh-note-safari')==='1'; }catch(e){}
+  if(!isIOS||isHomeScreen()||inClaude()||dismissed) return '';
+  return `<div class="notice" role="note"><div><b>Keep your list safe</b><p>Safari can clear a website’s saved data. Tap Share, then Add to Home Screen, and open Numbers from that icon. The icon keeps its own list, so use Backup below to bring these numbers along.</p></div><button class="x" data-act="dismiss-note" aria-label="Dismiss">×</button></div>`;
+}
+
+/* ---------------- contacts ---------------- */
+// Phone numbers from a contact card, cleaned up for drilling: US numbers lose the +1 and get 3-3-4 chunks.
+function tidyNumber(raw){
+  let s=String(raw||'').replace(/^tel:/i,'').split(/(?:\s*(?:x|ext\.?|extension|#|;|,)\s*\d+\s*$)/i)[0].trim();
+  const plus=s.trim().startsWith('+');
+  let d=s.replace(/[^\d]/g,'');
+  if(!d) return null;
+  if((plus&&d.length===11&&d[0]==='1')||(!plus&&d.length===11&&d[0]==='1')) d=d.slice(1);
+  if(d.length===10&&(!plus||String(raw).replace(/[^\d]/g,'').startsWith('1'))) return d.slice(0,3)+' '+d.slice(3,6)+' '+d.slice(6);
+  if(d.length===7) return d.slice(0,3)+' '+d.slice(3);
+  if(plus){ // international: keep the country code as its own chunk when it's recognizably short
+    const cc=d.length>=11?d.slice(0,d.length-10):d.slice(0,2);
+    return '+'+cc+' '+splitChunks(d.slice(cc.length)).join(' ');
+  }
+  return splitChunks(d).join(' ');
+}
+function qpDecode(v){ return v.replace(/=\r?\n/g,'').replace(/=([0-9A-F]{2})/gi,(m,h)=>'%'+h).replace(/%(?![0-9A-F]{2})/gi,'%25'); }
+function parseVCards(text){
+  const lines=String(text).replace(/\r\n/g,'\n').replace(/\n[ \t]/g,'').split('\n');
+  const out=[]; let cur=null;
+  for(const raw of lines){
+    const line=raw.trim(); if(!line) continue;
+    if(/^BEGIN:VCARD/i.test(line)){ cur={fn:'',n:'',org:'',tels:[],labels:{}}; continue; }
+    if(/^END:VCARD/i.test(line)){
+      if(cur){ cur.tels.forEach(t=>{ if(t.group&&cur.labels[t.group]) t.type=cleanType(cur.labels[t.group]); }); out.push(cur); }
+      cur=null; continue;
+    }
+    if(!cur) continue;
+    const ci=line.indexOf(':'); if(ci<0) continue;
+    let key=line.slice(0,ci), val=line.slice(ci+1);
+    let group=''; const gm=key.match(/^([^.;:]+)\.(.*)$/); if(gm){ group=gm[1]; key=gm[2]; }
+    const parts=key.split(';'), prop=parts[0].toUpperCase(), params=parts.slice(1).join(';');
+    if(/QUOTED-PRINTABLE/i.test(params)){ try{ val=decodeURIComponent(qpDecode(val)); }catch(e){} }
+    val=val.replace(/\\n/gi,' ').replace(/\\([,;\\])/g,'$1');
+    if(prop==='FN') cur.fn=val.trim();
+    else if(prop==='N'){ const f=val.split(';'); cur.n=[f[3],f[1],f[2],f[0]].filter(x=>x&&x.trim()).join(' ').trim(); }
+    else if(prop==='ORG') cur.org=val.split(';')[0].trim();
+    else if(prop==='TEL') cur.tels.push({number:val.trim(),type:cleanType(params),group});
+    else if(prop==='X-ABLABEL'&&group) cur.labels[group]=val;
+  }
+  return out.filter(c=>c.tels.length).map(c=>({name:c.fn||c.n||c.org||'Unnamed contact',tels:c.tels.map(({number,type})=>({number,type}))}));
+}
+function cleanType(t){
+  const s=String(t||'').toLowerCase().replace(/_\$!<|>!\$_/g,'');
+  if(/iphone/.test(s)) return 'iPhone';
+  if(/cell|mobile/.test(s)) return 'mobile';
+  if(/home/.test(s)) return 'home';
+  if(/work/.test(s)) return 'work';
+  if(/main/.test(s)) return 'main';
+  if(/fax/.test(s)) return 'fax';
+  const custom=String(t||'').replace(/_\$!<|>!\$_/g,'').replace(/^(type=)/i,'').split(/[;,=]/).pop();
+  return custom&&custom.length<20&&!/^(voice|pref|internet)$/i.test(custom)?custom:'';
+}
+const pickerSupported=()=>!!(navigator.contacts&&typeof navigator.contacts.select==='function');
+
+async function startContacts(){
+  if(pickerSupported()){
+    try{
+      const res=await navigator.contacts.select(['name','tel'],{multiple:true});
+      if(res&&res.length){
+        chooseContacts(res.map(c=>({name:(c.name&&c.name.find(Boolean))||'Unnamed contact',tels:(c.tel||[]).map(n=>({number:n,type:''}))})).filter(c=>c.tels.length));
+      }
+      return;
+    }catch(e){ /* picker refused here; fall back to a contacts file */ }
+  }
+  contactsFileSheet();
+}
+
+function contactsFileSheet(){
+  openSheet(`
+    <h3>Add from your contacts</h3>
+    <p style="margin:0;color:var(--muted)">Pick a contacts file and you’ll choose exactly who to add. Nothing leaves your phone.</p>
+    <ol class="steps">
+      <li>Open <b>Contacts</b>. To grab several people at once, drag two fingers down the list to select them.</li>
+      <li>Touch and hold the selection (or open one contact and scroll down), then tap <b>Share</b>.</li>
+      <li>Choose <b>Save to Files</b>, then come back here.</li>
+    </ol>
+    <label class="btn filebtn wide">${ICON.person} Choose contacts file<input type="file" id="vcfIn" accept=".vcf,.vcard,text/vcard,text/x-vcard,text/directory" multiple></label>
+    ${isIOS&&!inClaude()?`<p style="margin:0;font-size:.82rem;color:var(--faint)">Prefer picking straight from Contacts? In Settings › Apps › Safari › Advanced › Feature Flags, turn on Contact Picker API, then reopen this page.</p>`:''}
+    <p class="err" id="vcfErr"></p>
+    <button class="btn line wide" id="vcfCancel">Cancel</button>`, ()=>{
+      $('#vcfCancel').onclick=closeSheet;
+      $('#vcfIn').addEventListener('change',async e=>{
+        const files=[...(e.target.files||[])]; if(!files.length) return;
+        let people=[];
+        for(const f of files){ try{ people=people.concat(parseVCards(await f.text())); }catch(err){} }
+        if(!people.length){ $('#vcfErr').textContent='No phone numbers in that file. Make sure it’s a contact card (.vcf).'; return; }
+        chooseContacts(people);
+      });
+    });
+}
+
+function chooseContacts(people){
+  // Collapse duplicates, tidy numbers, and note which are already in the list.
+  const have=new Set(all().map(i=>norm(i.value)));
+  const byName=new Map();
+  for(const p of people){
+    const key=p.name.trim().toLowerCase();
+    const entry=byName.get(key)||{name:p.name.trim()||'Unnamed contact',tels:[]};
+    for(const t of p.tels){
+      const value=tidyNumber(t.number); if(!value||norm(value).length<3) continue;
+      if(entry.tels.some(x=>norm(x.value)===norm(value))) continue;
+      entry.tels.push({value,type:t.type,owned:have.has(norm(value))});
+    }
+    if(entry.tels.length) byName.set(key,entry);
+  }
+  const list=[...byName.values()].sort((a,b)=>a.name.localeCompare(b.name));
+  if(!list.length){ toast('None of those contacts have phone numbers.'); return; }
+  const picked=new Set(); // "personIndex:telIndex"
+  const LIMIT=250;
+  openSheet(`
+    <h3>Choose who to add</h3>
+    <div class="c-tools"><input id="cSearch" type="search" placeholder="Search ${list.length} contacts" autocomplete="off"></div>
+    <div class="c-list" id="cList"></div>
+    <div class="sticky-acts"><div class="acts"><button class="btn line" id="cCancel">Cancel</button><button class="btn" id="cAdd" disabled>Add numbers</button></div></div>`, ()=>{
+      const draw=()=>{
+        const q=$('#cSearch').value.trim().toLowerCase();
+        const qd=q.replace(/\D/g,'');
+        const rows=[]; let shown=0, matched=0;
+        list.forEach((p,pi)=>{
+          if(q&&!p.name.toLowerCase().includes(q)&&!(qd.length>=3&&p.tels.some(t=>norm(t.value).includes(qd)))) return;
+          matched++; if(shown>=LIMIT) return; shown++;
+          rows.push(`<div class="c-person"><div class="c-name">${esc(p.name)}</div>${p.tels.map((t,ti)=>{
+            const k=pi+':'+ti;
+            return `<label class="c-tel"><input type="checkbox" data-k="${k}" ${picked.has(k)?'checked':''} ${t.owned?'disabled':''} aria-label="${esc(p.name+' '+(t.type||'')+' '+t.value)}">
+              <span><span class="c-num">${esc(t.value)}</span>${t.type?` <span class="c-type">${esc(t.type)}</span>`:''}</span>${t.owned?'<span class="c-done">Already added</span>':''}</label>`;
+          }).join('')}</div>`);
+        });
+        $('#cList').innerHTML=rows.join('')+(matched>shown?`<div class="c-more">Showing ${shown} of ${matched}. Search to narrow it down.</div>`:'')+(!matched?`<div class="c-more">No contacts match “${esc(q)}”.</div>`:'');
+      };
+      const count=()=>{ const n=picked.size; const b=$('#cAdd'); b.disabled=!n; b.textContent=n?`Add ${n} number${n===1?'':'s'}`:'Add numbers'; };
+      $('#cSearch').addEventListener('input',draw);
+      $('#cList').addEventListener('change',e=>{ const k=e.target.dataset&&e.target.dataset.k; if(!k) return; e.target.checked?picked.add(k):picked.delete(k); count(); });
+      $('#cCancel').onclick=closeSheet;
+      $('#cAdd').onclick=()=>{
+        const now=Date.now(); let n=0;
+        const perPerson={}; for(const k of picked){ const pi=k.split(':')[0]; perPerson[pi]=(perPerson[pi]||0)+1; }
+        for(const k of picked){
+          const [pi,ti]=k.split(':').map(Number), p=list[pi], t=p.tels[ti];
+          const label=perPerson[pi]>1&&t.type?`${p.name} · ${t.type}`:p.name;
+          const nid=uid()+n; items[nid]={id:nid,label,value:t.value,hook:'',box:0,due:now,created:now,reviews:0,lapses:0};
+          persist(nid); n++;
+        }
+        closeSheet(); render(); toast(`Added ${n} number${n===1?'':'s'}. They’re ready to practice.`);
+      };
+      draw(); count();
+    });
 }
 
 /* ---------------- streak ---------------- */
@@ -328,15 +605,15 @@ function header(){
 
 function renderHome(){
   const A=$('#app');
-  if(store==='loading'){ A.innerHTML=header()+`<div class="hero"><div class="ring"></div><div><h1>Loading your numbers…</h1></div></div>`; return; }
   const list=all(), due=dueList();
   if(!list.length){
     A.innerHTML=header()+`<section class="empty">
       <div class="demo" aria-hidden="true">${['202','555','0148'].map((g,gi)=>`<span>${[...g].map((c,i)=>`<b style="animation-delay:${(gi*3+i)*.18}s">${c}</b>`).join('')}</span>`).join('')}</div>
       <h1>Know the numbers that matter without your phone.</h1>
       <p>Add the people you’d need if your battery died. You’ll retype each number as its digits fade, rebuild it chunk by chunk, then dial it cold, with reviews spaced out until it sticks for good.</p>
-      <div class="acts"><button class="btn" data-act="add">${ICON.plus} Add a number</button><button class="btn ghost" data-act="examples">Try with examples</button></div>
-    </section>${foot()}`;
+      <div class="acts"><button class="btn" data-act="contacts">${ICON.person} Choose from contacts</button><button class="btn ghost" data-act="add">${ICON.plus} Type a number</button></div>
+      <button class="btn line" data-act="examples" style="align-self:flex-start;padding:9px 14px;font-size:.9rem">Try with examples</button>
+    </section>${notice()}${foot()}`;
     return;
   }
   const learning=list.filter(i=>(i.due||0)>Date.now()&&(i.box||0)<5).sort((a,b)=>a.due-b.due);
@@ -359,9 +636,9 @@ function renderHome(){
     <div class="group-head"><span class="label">${title}</span><span class="count">${arr.length}</span></div>
     <div class="card-list">${arr.map(rowHTML).join('')}</div>
   </section>`;
-  A.innerHTML=header()+hero+group('Due now',due)+group('Learning',learning)+group('Locked in',locked)+foot();
+  A.innerHTML=header()+notice()+hero+group('Due now',due)+group('Learning',learning)+group('Locked in',locked)+foot();
   const lists=A.querySelectorAll('.card-list');
-  lists[lists.length-1].insertAdjacentHTML('beforeend',`<button class="add-row" data-act="add">${ICON.plus} Add a number</button>`);
+  lists[lists.length-1].insertAdjacentHTML('beforeend',`<div class="add-split"><button data-act="contacts">${ICON.person} From contacts</button><button data-act="add">${ICON.plus} Type one</button></div>`);
 }
 function rowHTML(it){
   const b=it.box||0, isDue=(it.due||0)<=Date.now();
@@ -381,11 +658,11 @@ function foot(){
       <p>Spaces or dashes in a number set its chunks. Letters work too, for plates and codes.</p>
     </div></details>
     <details><summary>Backup</summary><div class="body">
-      <p>${store==='db'?'Your list is saved to your Claude account. A backup lets you move it to the standalone version.':'Your list is saved on this device only. Copy a backup now and then and keep it in Notes.'}</p>
+      <p>${store==='db'?'Your list is saved on this device and synced to your Claude account. A backup moves it to the home-screen version.':'Your list is saved on this device, with a second copy kept as a fallback. Copy a backup now and then and keep it in Notes, or use it to move your list to another device.'}</p>
       <div class="after"><button class="btn ghost" data-act="copy">Copy backup</button><button class="btn ghost" data-act="restore-open">Restore</button></div>
       <div id="restore" hidden><textarea id="bkText" spellcheck="false" placeholder="Paste a backup here"></textarea><p class="err" id="bkErr"></p><button class="btn wide" data-act="restore">Replace my list with this backup</button></div>
     </div></details>
-    <p class="status">${store==='db'?'Saved to your Claude account · only you can see it':store==='local'?'Saved on this device':'Not saving: this browser is blocking storage'}</p>
+    <p class="status">${store==='db'?'Synced to your Claude account · only you can see it':store==='local'?'Saved on this device'+(isHomeScreen()?' · home-screen app':''):'Not saving: this browser is blocking storage. Turn off Private Browsing.'}</p>
   </div>`;
 }
 
@@ -667,6 +944,8 @@ document.addEventListener('click',e=>{
   const a=e.target.closest('[data-act]'); if(!a) return;
   const act=a.dataset.act;
   if(act==='add') editSheet(null);
+  else if(act==='contacts') startContacts();
+  else if(act==='dismiss-note'){ try{ localStorage.setItem('nbh-note-safari','1'); }catch(e){} render(); }
   else if(act==='examples') addExamples();
   else if(act==='review') startSession(dueList().map(i=>i.id));
   else if(act==='drill') startSession(all().sort(()=>Math.random()-.5).slice(0,8).map(i=>i.id),{drill:true});
@@ -705,16 +984,16 @@ function restoreBackup(){
     if(!Object.keys(clean).length) throw 0;
     const old=Object.keys(items);
     items=clean; if(data.stats) stats=Object.assign(stats,data.stats);
-    if(store==='db'){ old.filter(id=>!clean[id]).forEach(id=>persist(id)); Object.keys(clean).forEach(id=>persist(id)); persist('stats'); } else saveLocal();
+    old.filter(id=>!clean[id]).forEach(id=>persist(id)); Object.keys(clean).forEach(id=>persist(id)); persist('stats');
     render(); toast('Restored '+Object.keys(clean).length+' numbers.');
   }catch(e){ $('#bkErr').textContent='That isn’t a backup from this app. Paste the whole text from Copy backup.'; }
 }
 
 let tt; function toast(t){ const el=$('#toast'); el.textContent=t; el.hidden=false; clearTimeout(tt); tt=setTimeout(()=>el.hidden=true,2600); }
 setInterval(()=>{ if(view==='home'&&!sheet) render(); },30000);
-render(); initStore();
+initStore();
 })();
 </script>
-<script>if('serviceWorker' in navigator){addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));}</script>
+<script>if('serviceWorker' in navigator){addEventListener('load',()=>navigator.serviceWorker.register('sw.js').then(r=>r.update()).catch(()=>{}));}</script>
 </body>
 </html>
