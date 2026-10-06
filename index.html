@@ -1,0 +1,720 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Numbers by Heart</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Numbers">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#EDF0F4" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0A0E15" media="(prefers-color-scheme: dark)">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Azeret+Mono:wght@400;500;600;700&family=Instrument+Sans:wght@400;500;600;700&display=swap">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}body{margin:0}[hidden]{display:none!important}html{-webkit-text-size-adjust:100%}img{max-width:100%}</style>
+<style>
+/* Layout: a single phone-width column. Home is a stack of due / learning / locked-in groups; practice is a full-height focus screen with digit slots over a dialer keypad. */
+:root{
+  --bg:#EDF0F4; --surface:#FFFFFF; --raised:#F6F8FB; --ink:#0D1321; --muted:#5E6A7D; --faint:#97A2B3; --line:#D7DEE7;
+  --accent:#2B4BEE; --accent-ink:#FFFFFF; --accent-soft:#E2E7FD;
+  --good:#12805C; --good-soft:#DDF3EA; --bad:#D2342A; --bad-soft:#FBE3E1; --flame:#E08A12;
+  --key:#FFFFFF; --key-press:#DCE3EC; --shadow:0 1px 0 rgba(13,19,33,.06),0 8px 24px -12px rgba(13,19,33,.18);
+  --f-num:"Azeret Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --f-ui:"Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0A0E15; --surface:#131924; --raised:#182030; --ink:#E7ECF4; --muted:#8C98AA; --faint:#56627A; --line:#222C3B;
+  --accent:#8EA2FF; --accent-ink:#0A0F26; --accent-soft:#1C2547;
+  --good:#4CD39B; --good-soft:#123327; --bad:#FF7A6E; --bad-soft:#3A1715; --flame:#FFB347;
+  --key:#1A2230; --key-press:#253043; --shadow:0 1px 0 rgba(0,0,0,.4),0 10px 28px -14px rgba(0,0,0,.7); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0A0E15; --surface:#131924; --raised:#182030; --ink:#E7ECF4; --muted:#8C98AA; --faint:#56627A; --line:#222C3B;
+  --accent:#8EA2FF; --accent-ink:#0A0F26; --accent-soft:#1C2547;
+  --good:#4CD39B; --good-soft:#123327; --bad:#FF7A6E; --bad-soft:#3A1715; --flame:#FFB347;
+  --key:#1A2230; --key-press:#253043; --shadow:0 1px 0 rgba(0,0,0,.4),0 10px 28px -14px rgba(0,0,0,.7); color-scheme:dark}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-ui);font-size:16px;line-height:1.45;-webkit-tap-highlight-color:transparent;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;padding:0}
+button:focus-visible,input:focus-visible,textarea:focus-visible,.row:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.app{max-width:460px;margin:0 auto;padding-inline:16px;padding-block:14px 40px;min-height:100%;display:flex;flex-direction:column}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+.label{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;color:var(--muted)}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:14px;padding:13px 18px;font-weight:600;background:var(--accent);color:var(--accent-ink);transition:transform .12s ease, opacity .2s}
+.btn:active{transform:scale(.97)}
+.btn:disabled{opacity:.38;cursor:default;transform:none}
+.btn.ghost{background:var(--raised);color:var(--ink)}
+.btn.line{background:transparent;box-shadow:inset 0 0 0 1.5px var(--line);color:var(--ink)}
+.btn.danger{background:transparent;box-shadow:inset 0 0 0 1.5px var(--bad);color:var(--bad)}
+.btn.wide{width:100%}
+.icon-btn{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;color:var(--muted)}
+.icon-btn:active{background:var(--raised)}
+svg{display:block}
+
+/* header */
+.top{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-block:4px 18px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:1.05rem;letter-spacing:-.01em}
+.brand-mark{display:grid;grid-template-columns:repeat(3,5px);gap:3px}
+.brand-mark i{width:5px;height:5px;border-radius:2px;background:var(--accent)}
+.brand-mark i.o{background:transparent;box-shadow:inset 0 0 0 1.5px var(--accent)}
+.chips{display:flex;gap:8px;align-items:center}
+.chip{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:var(--surface);box-shadow:var(--shadow);font-weight:600;font-size:.85rem}
+.chip .num{font-weight:600}
+.chip.flame svg{color:var(--flame)}
+
+/* hero */
+.hero{background:var(--surface);border-radius:24px;padding:20px;box-shadow:var(--shadow);display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:center}
+.ring{position:relative;width:92px;height:92px}
+.ring svg{width:92px;height:92px;transform:rotate(-90deg)}
+.ring .track{stroke:var(--accent-soft)}
+.ring .bar{stroke:var(--accent);transition:stroke-dashoffset .8s cubic-bezier(.2,.8,.2,1)}
+.ring .center{position:absolute;inset:0;display:grid;place-items:center;text-align:center}
+.ring .big{font-family:var(--f-num);font-size:2rem;font-weight:600;line-height:1}
+.ring .small{font-size:.68rem;color:var(--muted);font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-top:2px}
+.hero h1{margin:0 0 4px;font-size:1.3rem;line-height:1.2;text-wrap:balance}
+.hero p{margin:0 0 14px;color:var(--muted);font-size:.92rem}
+.hero .acts{display:flex;gap:8px;flex-wrap:wrap}
+
+/* groups */
+.group{margin-top:26px}
+.group-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px;padding-inline:2px}
+.group-head .count{font-family:var(--f-num);font-size:.8rem;color:var(--faint)}
+.card-list{background:var(--surface);border-radius:20px;box-shadow:var(--shadow);overflow:hidden}
+.row{display:grid;grid-template-columns:1fr auto;gap:6px 14px;align-items:center;width:100%;padding:14px 16px;text-align:left;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+.row:active{background:var(--raised)}
+.row .name{font-weight:600;min-width:0;overflow-wrap:anywhere}
+.row .mask{font-family:var(--f-num);font-size:.82rem;color:var(--faint);letter-spacing:.08em;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .when{font-size:.78rem;color:var(--muted);text-align:right;white-space:nowrap}
+.row .when.due{color:var(--accent);font-weight:600}
+.meter{display:flex;gap:3px;justify-content:flex-end}
+.meter i{width:12px;height:4px;border-radius:2px;background:var(--line)}
+.meter i.on{background:var(--accent)}
+.meter.done i.on{background:var(--good)}
+.add-row{display:flex;align-items:center;gap:10px;width:100%;padding:14px 16px;color:var(--accent);font-weight:600;border-top:1px solid var(--line)}
+
+/* empty */
+.empty{background:var(--surface);border-radius:24px;padding:26px 20px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:16px}
+.empty h1{margin:0;font-size:1.45rem;line-height:1.2;text-wrap:balance}
+.empty p{margin:0;color:var(--muted);max-width:42ch}
+.demo{display:flex;gap:12px;flex-wrap:wrap;font-family:var(--f-num);font-size:1.5rem;font-weight:500}
+.demo span{display:flex;gap:4px}
+.demo b{width:1.05em;text-align:center;border-bottom:2.5px solid var(--line);font-weight:500;animation:fadeDigit 4.8s ease-in-out infinite}
+@keyframes fadeDigit{0%,30%{color:var(--ink)}45%,80%{color:transparent}95%,100%{color:var(--ink)}}
+.empty .acts{display:flex;gap:10px;flex-wrap:wrap}
+
+.foot{margin-top:28px;display:flex;flex-direction:column;gap:10px}
+.foot details{background:var(--surface);border-radius:18px;box-shadow:var(--shadow);padding:4px 16px}
+.foot summary{cursor:pointer;padding:12px 0;font-weight:600;list-style:none;display:flex;justify-content:space-between;align-items:center}
+.foot summary::-webkit-details-marker{display:none}
+.foot summary::after{content:"+";color:var(--muted);font-size:1.2rem}
+.foot details[open] summary::after{content:"–"}
+.foot .body{padding-bottom:14px;display:flex;flex-direction:column;gap:10px;color:var(--muted);font-size:.9rem}
+.foot .body p{margin:0}
+.foot textarea{font-family:var(--f-num);font-size:.78rem;padding:10px;border-radius:12px;border:1.5px solid var(--line);background:var(--raised);color:var(--ink);width:100%;min-height:90px;resize:vertical}
+.status{font-size:.78rem;color:var(--faint);text-align:center;margin:6px 0 0}
+
+/* practice */
+.practice{display:flex;flex-direction:column;min-height:calc(100dvh - 54px);gap:14px}
+.p-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.dots{display:flex;gap:5px;flex-wrap:wrap;justify-content:center;flex:1}
+.dots i{width:7px;height:7px;border-radius:50%;background:var(--line);transition:background .3s, transform .3s}
+.dots i.done{background:var(--accent)}
+.dots i.miss{background:var(--bad)}
+.dots i.cur{transform:scale(1.5);background:var(--ink)}
+.who{text-align:center;padding-top:6px}
+.who .label{display:block;margin-bottom:6px}
+.who h2{margin:0;font-size:1.65rem;line-height:1.15;text-wrap:balance;overflow-wrap:anywhere}
+.hook{margin:8px auto 0;max-width:34ch;color:var(--muted);font-size:.92rem;font-style:italic}
+.seg{display:flex;background:var(--surface);border-radius:12px;padding:3px;gap:3px;box-shadow:var(--shadow);align-self:center}
+.seg button{border-radius:9px;padding:7px 14px;font-size:.85rem;font-weight:600;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.instr{text-align:center;color:var(--muted);font-size:.92rem;margin:0;min-height:1.4em}
+
+.slots{display:flex;flex-wrap:wrap;gap:8px 16px;justify-content:center;padding-block:10px 4px;--sz:2rem}
+.slots.long{--sz:1.45rem;gap:8px 12px}
+.slots.xlong{--sz:1.15rem;gap:6px 9px}
+.chunk{display:flex;gap:5px}
+.slot{position:relative;width:calc(var(--sz)*.95);height:calc(var(--sz)*1.6);display:flex;align-items:center;justify-content:center;font-family:var(--f-num);font-size:var(--sz);font-weight:500;border-bottom:3px solid var(--line);transition:border-color .2s,color .2s}
+.slot.ghost{color:var(--faint)}
+.slot.hid{color:transparent}
+.slot.cur{border-bottom-color:var(--accent)}
+.slot.cur::after{content:"";position:absolute;bottom:5px;width:44%;height:2px;border-radius:1px;background:var(--accent);animation:blink 1.05s steps(2) infinite}
+.slot.later{opacity:.28}
+.slot.locked{color:var(--muted)}
+.slot.ok{color:var(--good);border-bottom-color:var(--good)}
+.slot.no{color:var(--bad);border-bottom-color:var(--bad)}
+.slot.no[data-fix]::before{content:attr(data-fix);position:absolute;top:100%;margin-top:4px;font-size:calc(var(--sz)*.5);color:var(--good);font-weight:700}
+.slot.pop{animation:pop .22s ease-out}
+.slot.shake{animation:shake .32s ease-out}
+@keyframes blink{50%{opacity:0}}
+@keyframes pop{0%{transform:scale(1)}50%{transform:scale(1.18)}100%{transform:scale(1)}}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}
+.msg{text-align:center;min-height:1.5em;margin:10px 0 0;font-weight:600;font-size:.95rem}
+.msg.good{color:var(--good)} .msg.bad{color:var(--bad)}
+.spacer{flex:1}
+
+.pad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.key{border-radius:18px;background:var(--key);height:64px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;box-shadow:var(--shadow);touch-action:manipulation;user-select:none;-webkit-user-select:none;transition:transform .08s ease, background .08s}
+.key:active,.key.hit{background:var(--key-press);transform:scale(.96)}
+.key .d{font-family:var(--f-num);font-size:1.55rem;line-height:1;font-weight:500}
+.key .l{font-size:.56rem;letter-spacing:.18em;color:var(--faint);font-weight:700;min-height:.8em}
+.key.fn{background:transparent;box-shadow:none;color:var(--muted);font-weight:600;font-size:.88rem}
+.key.fn:disabled{opacity:.25}
+.txt{display:flex;gap:8px}
+.txt input{flex:1;min-width:0;font-family:var(--f-num);font-size:1.25rem;padding:14px;border-radius:14px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);text-transform:uppercase}
+.after{display:flex;gap:10px}
+.after .btn{flex:1}
+
+/* session summary */
+.summary{display:flex;flex-direction:column;gap:18px;padding-top:10px}
+.summary .big{font-family:var(--f-num);font-size:3.6rem;font-weight:600;line-height:1;letter-spacing:-.03em}
+.summary h2{margin:0;font-size:1.5rem;text-wrap:balance}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.stat{background:var(--surface);border-radius:16px;padding:12px;box-shadow:var(--shadow)}
+.stat b{display:block;font-family:var(--f-num);font-size:1.3rem;font-weight:600}
+.stat span{font-size:.72rem;color:var(--muted);font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+.results{background:var(--surface);border-radius:18px;box-shadow:var(--shadow);overflow:hidden}
+.results div{display:flex;justify-content:space-between;gap:10px;padding:12px 16px;border-top:1px solid var(--line);font-size:.92rem}
+.results div:first-child{border-top:0}
+.results .r-ok{color:var(--good);font-weight:600} .results .r-no{color:var(--bad);font-weight:600}
+
+/* sheet */
+.scrim{position:fixed;inset:0;background:rgba(5,8,15,.42);display:flex;align-items:flex-end;justify-content:center;z-index:10;animation:fade .18s ease}
+.sheet{background:var(--bg);width:100%;max-width:460px;border-radius:24px 24px 0 0;padding:10px 16px calc(20px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:14px;max-height:92%;overflow:auto;animation:rise .26s cubic-bezier(.2,.8,.2,1)}
+.grip{width:38px;height:5px;border-radius:3px;background:var(--line);margin:0 auto 4px}
+.sheet h3{margin:0;font-size:1.25rem}
+.field{display:flex;flex-direction:column;gap:6px}
+.field input,.field textarea{font:inherit;padding:13px 14px;border-radius:14px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);width:100%}
+.field input.numin{font-family:var(--f-num);font-size:1.2rem;letter-spacing:.04em}
+.field .help{font-size:.8rem;color:var(--muted)}
+.preview{display:flex;gap:10px;flex-wrap:wrap;font-family:var(--f-num);font-size:1.1rem;min-height:1.6em}
+.preview span{padding:3px 8px;border-radius:8px;background:var(--accent-soft);color:var(--accent);font-weight:600}
+.sheet .acts{display:flex;gap:10px;flex-wrap:wrap}
+.sheet .acts .btn{flex:1}
+.err{color:var(--bad);font-size:.85rem;margin:0;min-height:1.2em}
+.detail-num{font-family:var(--f-num);font-size:1.7rem;font-weight:600;letter-spacing:.04em;text-align:center;padding:14px;border-radius:16px;background:var(--surface);box-shadow:var(--shadow);overflow-wrap:anywhere}
+.detail-num.veil{color:transparent;text-shadow:0 0 14px var(--faint);user-select:none}
+.kv{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.kv .stat b{font-family:var(--f-ui);font-size:1.05rem}
+.slots.has-fix{padding-bottom:1.6em}
+@keyframes rise{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+
+.toast{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:11px 16px;border-radius:14px;font-size:.9rem;font-weight:600;z-index:20;max-width:calc(100% - 32px);animation:rise .2s ease}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app" id="app"></div>
+<div id="layer"></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(() => {
+'use strict';
+const IV=[0,6e5,864e5,2592e5,6048e5,18144e5,5184e6];          // 0, 10 min, 1 d, 3 d, 7 d, 21 d, 60 d
+const STAGE=['New','Learning','Chunked','Recalling','Recalling','Locked in','Locked in'];
+const SEP=/[\s\-().+\/,]+/g;
+const LETTERS={2:'ABC',3:'DEF',4:'GHI',5:'JKL',6:'MNO',7:'PQRS',8:'TUV',9:'WXYZ',0:'+'};
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const ICON={
+  flame:'<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c1 4 5 6 5 11a5 5 0 0 1-10 0c0-2 1-3.5 2-4.5 0 2 1 3 2 3 0-4-1-6 1-9.5z"/></svg>',
+  plus:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  back:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>',
+  del:'<svg width="26" height="20" viewBox="0 0 28 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M9 2h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H9L2 10z"/><path d="M13 7l6 6M19 7l-6 6"/></svg>',
+  eye:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+  play:'<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>',
+};
+
+let items={}, stats={streak:0,best:0,lastDay:null,today:0,day:null}, store='loading', col=null, chain=Promise.resolve();
+let view='home', S=null, sheet=null;
+
+/* ---------------- number helpers ---------------- */
+const norm=v=>(v||'').replace(SEP,'').toUpperCase();
+const digitsOnly=v=>/^\d+$/.test(norm(v));
+function chunksOf(v){
+  const groups=(v||'').toUpperCase().split(SEP).filter(Boolean);
+  if(groups.length>1) return groups.map(g=>g.length);
+  const n=norm(v).length;
+  if(n===10) return [3,3,4]; if(n===11) return [1,3,3,4]; if(n===7) return [3,4];
+  if(n<=4) return [n]; if(n<=6) return [3,n-3];
+  const size=n%3===0?3:4, out=[]; let r=n;
+  while(r>0){out.push(Math.min(size,r)); r-=size;}
+  if(out.length>1&&out[out.length-1]===1){out.pop(); out[out.length-1]++;}
+  return out;
+}
+function splitChunks(v){const s=norm(v),c=chunksOf(v),out=[];let i=0;for(const l of c){out.push(s.slice(i,i+l));i+=l;}return out;}
+const starts=ch=>ch.reduce((a,l,i)=>(a.push(i?a[i-1]+ch[i-1]:0),a),[]);
+const maskOf=v=>chunksOf(v).map(l=>'•'.repeat(l)).join(' ');
+const dayKey=(t=Date.now())=>{const d=new Date(t);return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();};
+function rel(t){
+  const d=(t||0)-Date.now(); if(d<=0) return 'Due now';
+  const m=Math.round(d/6e4); if(m<60) return 'In '+Math.max(1,m)+' min';
+  const h=Math.round(d/36e5); if(h<24) return 'In '+h+' h';
+  const dd=Math.round(d/864e5); return dd===1?'Tomorrow':'In '+dd+' days';
+}
+const autoMode=it=>(it.box||0)===0?'fade':(it.box===1?'chunks':'cold');
+const uid=()=>'n'+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const all=()=>Object.values(items);
+const dueList=()=>all().filter(i=>(i.due||0)<=Date.now()).sort((a,b)=>(a.due||0)-(b.due||0));
+
+/* ---------------- storage ---------------- */
+// Inside Claude the list lives in the account's private store; as a standalone site it lives on the device.
+const LKEY='nbh-items', SKEY='nbh-stats';
+function loadLocal(){
+  try{ items=JSON.parse(localStorage.getItem(LKEY)||'{}')||{}; stats=Object.assign(stats,JSON.parse(localStorage.getItem(SKEY)||'{}')); store='local'; }
+  catch(e){ items={}; store='memory'; }
+}
+function saveLocal(){ if(store!=='local') return; try{localStorage.setItem(LKEY,JSON.stringify(items));localStorage.setItem(SKEY,JSON.stringify(stats));}catch(e){store='memory';toast('Couldn’t save. Storage is full or blocked.');} }
+function persist(id){
+  if(store==='db'){
+    const it=id==='stats'?{...stats,kind:'stats'}:items[id];
+    chain=chain.then(()=>it?col.doc(id).set(JSON.parse(JSON.stringify(it))):col.doc(id).delete())
+      .catch(e=>toast(e&&e.code==='quota_exceeded'?'Storage is full. Delete a few numbers.':'Couldn’t save. Check your connection.'));
+  } else saveLocal();
+}
+async function initStore(){
+  const c=window.claude;
+  if(!c||!c.use){ loadLocal(); render(); return; }
+  try{
+    const [db,user]=await Promise.all([c.use('db'),c.use('user')]);
+    const id=user?await user.id():null;
+    if(!db||!id){ loadLocal(); render(); return; }
+    col=db.collection('data/users/'+id);
+    col.onSnapshot(snap=>{
+      const next={};
+      snap.docs.forEach(d=>{ if(!d.exists) return; const v=d.data(); if(d.id==='stats') stats=Object.assign({},stats,v); else next[d.id]={...v,id:d.id}; });
+      items=next; store='db';
+      if(view==='home') render();
+    },()=>{ if(store!=='db'){ loadLocal(); render(); } else toast('Lost the connection to your saved list.'); });
+  }catch(e){ loadLocal(); render(); }
+}
+
+/* ---------------- streak ---------------- */
+function bumpStreak(){
+  const today=dayKey();
+  if(stats.day!==today){ stats.day=today; stats.today=0; }
+  stats.today++;
+  if(stats.lastDay!==today){
+    const y=dayKey(Date.now()-864e5);
+    stats.streak = stats.lastDay===y ? (stats.streak||0)+1 : 1;
+    stats.best=Math.max(stats.best||0,stats.streak);
+    stats.lastDay=today;
+  }
+  persist('stats');
+}
+function liveStreak(){ const t=dayKey(), y=dayKey(Date.now()-864e5); return (stats.lastDay===t||stats.lastDay===y)?(stats.streak||0):0; }
+
+/* ---------------- home ---------------- */
+function render(){ if(view==='home') renderHome(); else if(view==='practice') renderPractice(); else if(view==='done') renderDone(); }
+
+function header(){
+  const st=liveStreak(), n=all().length;
+  return `<header class="top">
+    <div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i class="o"></i><i></i><i class="o"></i><i></i><i></i><i></i><i class="o"></i><i></i></span>Numbers by Heart</div>
+    <div class="chips">${st?`<span class="chip flame" title="Days in a row">${ICON.flame}<span class="num">${st}</span></span>`:''}${n?`<span class="chip"><span class="num">${n}</span> saved</span>`:''}</div>
+  </header>`;
+}
+
+function renderHome(){
+  const A=$('#app');
+  if(store==='loading'){ A.innerHTML=header()+`<div class="hero"><div class="ring"></div><div><h1>Loading your numbers…</h1></div></div>`; return; }
+  const list=all(), due=dueList();
+  if(!list.length){
+    A.innerHTML=header()+`<section class="empty">
+      <div class="demo" aria-hidden="true">${['202','555','0148'].map((g,gi)=>`<span>${[...g].map((c,i)=>`<b style="animation-delay:${(gi*3+i)*.18}s">${c}</b>`).join('')}</span>`).join('')}</div>
+      <h1>Know the numbers that matter without your phone.</h1>
+      <p>Add the people you’d need if your battery died. You’ll retype each number as its digits fade, rebuild it chunk by chunk, then dial it cold, with reviews spaced out until it sticks for good.</p>
+      <div class="acts"><button class="btn" data-act="add">${ICON.plus} Add a number</button><button class="btn ghost" data-act="examples">Try with examples</button></div>
+    </section>${foot()}`;
+    return;
+  }
+  const learning=list.filter(i=>(i.due||0)>Date.now()&&(i.box||0)<5).sort((a,b)=>a.due-b.due);
+  const locked=list.filter(i=>(i.due||0)>Date.now()&&(i.box||0)>=5).sort((a,b)=>a.label.localeCompare(b.label));
+  const mastered=list.filter(i=>(i.box||0)>=5).length;
+  const nextT=list.reduce((m,i)=>Math.min(m,i.due||0),Infinity);
+  const C=2*Math.PI*40, frac=list.length?mastered/list.length:0;
+  const hero=`<section class="hero">
+    <div class="ring" aria-label="${mastered} of ${list.length} locked in">
+      <svg viewBox="0 0 92 92"><circle class="track" cx="46" cy="46" r="40" fill="none" stroke-width="8"/><circle class="bar" cx="46" cy="46" r="40" fill="none" stroke-width="8" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C*(1-frac)}"/></svg>
+      <div class="center"><div><div class="big">${due.length}</div><div class="small">due</div></div></div>
+    </div>
+    <div>
+      <h1>${due.length?(due.length===1?'One number to review':due.length+' numbers to review'):'All caught up'}</h1>
+      <p>${due.length?'About '+Math.max(1,Math.round(due.length*.6))+' min. '+mastered+' of '+list.length+' locked in.':'Next review '+rel(nextT).toLowerCase()+'. '+mastered+' of '+list.length+' locked in.'}</p>
+      <div class="acts">${due.length?`<button class="btn" data-act="review">${ICON.play} Start review</button>`:`<button class="btn ghost" data-act="drill">Practice anyway</button>`}</div>
+    </div>
+  </section>`;
+  const group=(title,arr)=>!arr.length?'':`<section class="group">
+    <div class="group-head"><span class="label">${title}</span><span class="count">${arr.length}</span></div>
+    <div class="card-list">${arr.map(rowHTML).join('')}</div>
+  </section>`;
+  A.innerHTML=header()+hero+group('Due now',due)+group('Learning',learning)+group('Locked in',locked)+foot();
+  const lists=A.querySelectorAll('.card-list');
+  lists[lists.length-1].insertAdjacentHTML('beforeend',`<button class="add-row" data-act="add">${ICON.plus} Add a number</button>`);
+}
+function rowHTML(it){
+  const b=it.box||0, isDue=(it.due||0)<=Date.now();
+  return `<button class="row" data-open="${it.id}">
+    <span class="name">${esc(it.label)}</span>
+    <span class="meter ${b>=5?'done':''}" title="${STAGE[b]}">${[1,2,3,4,5,6].map(k=>`<i class="${b>=k?'on':''}"></i>`).join('')}</span>
+    <span class="mask">${maskOf(it.value)}</span>
+    <span class="when ${isDue?'due':''}">${rel(it.due)}</span>
+  </button>`;
+}
+function foot(){
+  return `<div class="foot">
+    <details><summary>How it works</summary><div class="body">
+      <p><b>Fade.</b> Type the number over itself while more and more digits disappear.</p>
+      <p><b>Chunks.</b> Rebuild it one group at a time, the way you’d say it out loud.</p>
+      <p><b>Recall.</b> Dial it cold. Reviews space out from ten minutes to two months; a miss sends it back to learning.</p>
+      <p>Spaces or dashes in a number set its chunks. Letters work too, for plates and codes.</p>
+    </div></details>
+    <details><summary>Backup</summary><div class="body">
+      <p>${store==='db'?'Your list is saved to your Claude account. A backup lets you move it to the standalone version.':'Your list is saved on this device only. Copy a backup now and then and keep it in Notes.'}</p>
+      <div class="after"><button class="btn ghost" data-act="copy">Copy backup</button><button class="btn ghost" data-act="restore-open">Restore</button></div>
+      <div id="restore" hidden><textarea id="bkText" spellcheck="false" placeholder="Paste a backup here"></textarea><p class="err" id="bkErr"></p><button class="btn wide" data-act="restore">Replace my list with this backup</button></div>
+    </div></details>
+    <p class="status">${store==='db'?'Saved to your Claude account · only you can see it':store==='local'?'Saved on this device':'Not saving: this browser is blocking storage'}</p>
+  </div>`;
+}
+
+function addExamples(){
+  const now=Date.now();
+  [['Example · Dentist','202-555-0148','0148: the year 1948, backwards-ish'],['Example · Gym locker','3829',''],['Example · Library card','2130 0041 7765','']]
+    .forEach(([label,value,hook],k)=>{const id=uid()+k; items[id]={id,label,value,hook,box:0,due:now,created:now,reviews:0,lapses:0}; persist(id);});
+  render(); toast('Three examples added. Delete them anytime.');
+}
+
+/* ---------------- sheets ---------------- */
+function openSheet(html,onMount){
+  const L=$('#layer'); L.innerHTML=`<div class="scrim" id="scrim"><div class="sheet" role="dialog" aria-modal="true"><div class="grip"></div>${html}</div></div>`;
+  sheet=true; $('#scrim').addEventListener('click',e=>{ if(e.target.id==='scrim') closeSheet(); });
+  onMount&&onMount();
+}
+function closeSheet(){ $('#layer').innerHTML=''; sheet=null; }
+
+function detailSheet(id){
+  const it=items[id]; if(!it) return;
+  const b=it.box||0;
+  openSheet(`
+    <h3>${esc(it.label)}</h3>
+    <button class="detail-num veil" id="dNum" aria-label="Tap to reveal">${esc(splitChunks(it.value).join(' '))}</button>
+    ${it.hook?`<p class="hook" style="margin:0;text-align:center">${esc(it.hook)}</p>`:''}
+    <div class="kv">
+      <div class="stat"><b>${STAGE[b]}</b><span>Stage</span></div>
+      <div class="stat"><b>${it.reviews||0}</b><span>Reviews</span></div>
+      <div class="stat"><b>${rel(it.due).replace('In ','')}</b><span>Next</span></div>
+    </div>
+    <div class="acts"><button class="btn" data-act="practice-one" data-id="${id}">${ICON.play} Practice</button><button class="btn ghost" data-act="edit" data-id="${id}">Edit</button></div>
+    <button class="btn danger wide" id="delBtn">Delete</button>`, ()=>{
+      const n=$('#dNum'); n.onclick=()=>{ n.classList.toggle('veil'); };
+      let armed=false; $('#delBtn').onclick=()=>{ if(!armed){armed=true;$('#delBtn').textContent='Tap again to delete';return;} delete items[id]; persist(id); closeSheet(); render(); toast('Deleted.'); };
+    });
+}
+
+function editSheet(id){
+  const it=id?items[id]:null;
+  openSheet(`
+    <h3>${it?'Edit number':'Add a number'}</h3>
+    <form id="form" novalidate style="display:flex;flex-direction:column;gap:14px">
+      <div class="field"><label class="label" for="fLabel">Whose number, or what for</label><input id="fLabel" autocomplete="off" value="${it?esc(it.label):''}" placeholder="Mom’s cell"></div>
+      <div class="field"><label class="label" for="fValue">Number</label><input id="fValue" class="numin" autocomplete="off" inputmode="tel" value="${it?esc(it.value):''}" placeholder="202-555-0148">
+        <div class="preview" id="fPrev" aria-live="polite"></div>
+        <span class="help">You’ll practice it in these chunks. Add spaces or dashes to regroup.</span></div>
+      <div class="field"><label class="label" for="fHook">Memory hook <span style="text-transform:none;letter-spacing:0;font-weight:500">(optional)</span></label><textarea id="fHook" rows="2" placeholder="0148 · January ’48, grandpa’s birthday">${it?esc(it.hook||''):''}</textarea></div>
+      <p class="err" id="fErr"></p>
+      <div class="acts"><button type="button" class="btn line" id="fCancel">Cancel</button><button type="submit" class="btn">${it?'Save':'Add number'}</button></div>
+    </form>`, ()=>{
+      const prev=()=>{ const v=$('#fValue').value; $('#fPrev').innerHTML=norm(v).length?splitChunks(v).map(c=>`<span>${esc(c)}</span>`).join(''):''; };
+      $('#fValue').addEventListener('input',prev); prev();
+      $('#fCancel').onclick=closeSheet;
+      setTimeout(()=>$(it?'#fValue':'#fLabel').focus(),60);
+      $('#form').addEventListener('submit',e=>{
+        e.preventDefault();
+        const label=$('#fLabel').value.trim(), value=$('#fValue').value.trim(), hook=$('#fHook').value.trim();
+        if(!label){ $('#fErr').textContent='Give it a name so you know whose number to recall.'; $('#fLabel').focus(); return; }
+        if(norm(value).length<2){ $('#fErr').textContent='Enter at least two digits or characters.'; $('#fValue').focus(); return; }
+        if(norm(value).length>24){ $('#fErr').textContent='Keep it to 24 characters or fewer.'; return; }
+        const now=Date.now();
+        if(it){
+          const changed=norm(it.value)!==norm(value);
+          Object.assign(it,{label,value,hook}); if(changed){ it.box=0; it.due=now; }
+          persist(it.id); toast(changed?'Saved. Practice starts over for the new number.':'Saved.');
+        } else { const nid=uid(); items[nid]={id:nid,label,value,hook,box:0,due:now,created:now,reviews:0,lapses:0}; persist(nid); toast('Added. It’s ready to practice.'); }
+        closeSheet(); render();
+      });
+    });
+}
+
+/* ---------------- practice ---------------- */
+function startSession(ids,{drill=false}={}){
+  if(!ids.length) return;
+  S={queue:ids,qi:0,results:[],drill};
+  view='practice'; closeSheet(); loadItem(); window.scrollTo(0,0);
+}
+function endSession(){
+  view = S&&S.results.length ? 'done' : 'home';
+  if(view==='home') S=null;
+  render(); window.scrollTo(0,0);
+}
+function loadItem(mode){
+  const it=items[S.queue[S.qi]]; if(!it) return nextItem();
+  const m=mode||autoMode(it);
+  Object.assign(S,{id:it.id,mode:m,target:[...norm(it.value)],chunks:chunksOf(it.value),text:!digitsOnly(it.value),
+    level:0,chunkIdx:0,typed:[],perfect:true,phase:'input',reveal:new Set(),misses:{},msg:'',msgCls:'',fx:null,counted:false,ok:null});
+  if(m==='fade') newMask();
+  renderPractice(true);
+}
+function nextItem(){ S.qi++; if(S.qi>=S.queue.length) endSession(); else loadItem(); }
+function newMask(){
+  const n=S.target.length, k=S.level>=4?n:Math.round(n*[0,.3,.55,.8][S.level]);
+  const idx=[...Array(n).keys()];
+  for(let i=idx.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[idx[i],idx[j]]=[idx[j],idx[i]];}
+  S.hidden=new Set(idx.slice(0,k));
+}
+const aStart=()=>S.mode==='chunks'?starts(S.chunks)[S.chunkIdx]:0;
+const aLen=()=>S.mode==='chunks'?S.chunks[S.chunkIdx]:S.target.length;
+
+function renderPractice(full){
+  const it=items[S.id]; if(!it) return endSession();
+  const A=$('#app');
+  if(full||!A.querySelector('.practice')){
+    A.innerHTML=`<section class="practice">
+      <div class="p-top"><button class="icon-btn" data-act="quit" aria-label="End session">${ICON.back}</button><div class="dots" id="dots"></div><span style="width:40px"></span></div>
+      <div class="who"><span class="label" id="pStage"></span><h2 id="pLabel"></h2><p class="hook" id="pHook" hidden></p></div>
+      <div class="seg" role="group" aria-label="Practice mode">
+        <button data-mode="fade">Fade</button><button data-mode="chunks">Chunks</button><button data-mode="cold">Recall</button>
+      </div>
+      <p class="instr" id="instr"></p>
+      <div><div class="slots" id="slots" aria-live="polite"></div><p class="msg" id="msg"></p></div>
+      <div class="spacer"></div>
+      <div id="inputArea"></div>
+    </section>`;
+    buildInput();
+  }
+  $('#dots').innerHTML=S.queue.length>1?S.queue.map((q,i)=>{const r=S.results[i];return `<i class="${i===S.qi?'cur':r===true?'done':r===false?'miss':''}"></i>`;}).join(''):'';
+  $('#pStage').textContent=S.queue.length>1?`${S.qi+1} of ${S.queue.length}`:STAGE[it.box||0];
+  $('#pLabel').textContent=it.label;
+  const hk=$('#pHook'); hk.textContent=it.hook||''; hk.hidden=!(it.hook&&(S.mode==='fade'||S.phase==='done'));
+  document.querySelectorAll('.seg button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.mode===S.mode));
+  const n=S.target.length, hid=S.mode==='fade'?S.hidden.size:0;
+  $('#instr').textContent = S.phase==='done' ? '' :
+    S.mode==='fade' ? (S.level===0?'Type it over the gray digits.':hid===n?'All hidden. Type it from memory.':`${hid} of ${n} digits hidden. Keep going.`) :
+    S.mode==='chunks' ? `Group ${S.chunkIdx+1} of ${S.chunks.length}, from memory.` :
+    'Dial it cold.';
+  // slots
+  const SL=$('#slots'); SL.className='slots'+(n>16?' xlong':n>11?' long':'');
+  const s0=aStart(), len=aLen(), sts=starts(S.chunks);
+  let html='';
+  S.chunks.forEach((cl,ci)=>{
+    html+='<span class="chunk">';
+    for(let j=0;j<cl;j++){
+      const i=sts[ci]+j, tgt=S.target[i]; let cls='slot', txt='', extra='';
+      const done=S.phase==='done';
+      if(S.mode==='chunks' && !done && i<s0){ cls+=' locked'; txt=tgt; }
+      else if(S.mode==='chunks' && !done && i>=s0+len){ cls+=' later'; }
+      else{
+        const k=i-s0, typed=S.typed[k];
+        if(done){
+          if(S.mode==='cold' && !S.ok){ const t=S.typed[i]; if(t===tgt){cls+=' ok';txt=t;} else {cls+=' no';txt=t||'·';extra=` data-fix="${esc(tgt)}"`;} }
+          else { cls+=' ok'; txt=tgt; }
+        } else if(typed!==undefined){ txt=typed; }
+        else{
+          const show=(S.mode==='fade'&&!S.hidden.has(i))||S.reveal.has(i);
+          if(show){ cls+=' ghost'; txt=tgt; }
+          if(k===S.typed.length) cls+=' cur';
+        }
+      }
+      if(S.fx&&S.fx.i===i) cls+=' '+S.fx.cls;
+      html+=`<span class="${cls}"${extra}>${esc(txt)}</span>`;
+    }
+    html+='</span>';
+  });
+  SL.innerHTML=html; S.fx=null;
+  SL.classList.toggle('has-fix',!!SL.querySelector('[data-fix]'));
+  const m=$('#msg'); m.textContent=S.msg; m.className='msg '+(S.msgCls||'');
+  renderControls();
+}
+
+function buildInput(){
+  const A=$('#inputArea');
+  if(S.text){
+    A.innerHTML=`<div class="txt"><input id="tIn" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Type the characters"></div><div class="after" id="after" style="margin-top:12px"></div>`;
+    const inp=$('#tIn');
+    inp.addEventListener('input',()=>{
+      const v=[...norm(inp.value)];
+      if(S.phase!=='input'){ inp.value=''; return; }
+      const prevLen=S.typed.length;
+      if(v.length<prevLen){ S.typed=S.typed.slice(0,v.length); renderPractice(); return; }
+      for(const ch of v.slice(prevLen)) press(ch);
+      inp.value=S.typed.join('');
+    });
+    setTimeout(()=>inp.focus(),60);
+  } else {
+    A.innerHTML=`<div class="pad">${['1','2','3','4','5','6','7','8','9','peek','0','del'].map(k=>
+      k==='peek'?`<button class="key fn" id="peekKey" data-key="peek">Hint</button>`:
+      k==='del'?`<button class="key fn" data-key="del" aria-label="Delete">${ICON.del}</button>`:
+      `<button class="key" data-key="${k}"><span class="d">${k}</span><span class="l">${LETTERS[k]||''}</span></button>`).join('')}</div>
+      <div class="after" id="after" style="margin-top:12px"></div>`;
+  }
+}
+function renderControls(){
+  const pk=$('#peekKey');
+  if(pk){ pk.textContent=S.mode==='cold'?'Show':'Hint'; pk.disabled=S.phase!=='input'||S.mode==='fade'; }
+  const inp=$('#tIn'); if(inp){ inp.disabled=S.phase==='done'; if(!S.typed.length&&S.phase==='input') inp.value=''; }
+  const af=$('#after'); if(!af) return;
+  if(S.phase==='done'){
+    const last=S.qi>=S.queue.length-1;
+    af.innerHTML=`<button class="btn ghost" data-act="again">Again</button><button class="btn" data-act="next" id="nextBtn">${last?'Finish':'Next'}</button>`;
+    if(S.text) af.insertAdjacentHTML('afterbegin','');
+    setTimeout(()=>{const b=$('#nextBtn'); b&&b.focus();},30);
+  } else if(S.text && S.mode!=='fade'){
+    af.innerHTML=`<button class="btn ghost" data-act="peek">${S.mode==='cold'?'Show me':'Hint'}</button>`;
+  } else af.innerHTML='';
+}
+
+function press(k){
+  if(!S||view!=='practice') return;
+  if(S.phase==='done'){ return; }
+  if(S.phase!=='input') return;
+  if(k==='del'){ if(S.typed.length){S.typed.pop();} renderPractice(); return; }
+  if(k==='peek') return peek();
+  const len=aLen(); if(S.typed.length>=len) return;
+  const s0=aStart(), pos=s0+S.typed.length, want=S.target[pos];
+  if(S.mode==='cold'){
+    S.typed.push(k); S.fx={i:pos,cls:'pop'};
+    renderPractice();
+    if(S.typed.length===len){ S.phase='checking'; setTimeout(()=>{ S.phase='input'; gradeCold(); },160); }
+    return;
+  }
+  // Fade and chunks: errorless learning. Wrong keys don't land; two misses on a slot reveal it.
+  if(k!==want){
+    S.perfect=false; S.misses[pos]=(S.misses[pos]||0)+1;
+    if(S.misses[pos]>=2) S.reveal.add(pos);
+    S.fx={i:pos,cls:'shake'}; S.msg=S.misses[pos]>=2?'Here it is. Type it in.':'Not that one.'; S.msgCls='bad';
+    renderPractice(); return;
+  }
+  S.typed.push(k); S.fx={i:pos,cls:'pop'}; S.msg=''; S.msgCls='';
+  if(S.typed.length<len){ renderPractice(); return; }
+  // group complete
+  if(S.mode==='fade'){
+    if(S.level>=4) return finish(S.perfect);
+    S.level++; S.phase='flash'; S.msg=S.level===4?'Now every digit is hidden.':'Good. Fewer hints this time.'; S.msgCls='good';
+    renderPractice();
+    setTimeout(()=>{ if(S&&S.phase==='flash'){ newMask(); S.typed=[]; S.reveal=new Set(); S.misses={}; S.phase='input'; S.msg=''; S.msgCls=''; renderPractice(); } },650);
+  } else {
+    S.chunkIdx++; S.typed=[]; S.reveal=new Set(); S.misses={};
+    if(S.chunkIdx>=S.chunks.length) return finish(S.perfect);
+    S.msg='Got it.'; S.msgCls='good'; renderPractice();
+  }
+}
+function peek(){
+  if(S.phase!=='input') return;
+  if(S.mode==='chunks'){ const s0=aStart(); for(let i=0;i<aLen();i++) S.reveal.add(s0+i); S.perfect=false; S.msg='Shown. Type it over the gray.'; S.msgCls=''; renderPractice(); }
+  else if(S.mode==='cold'){ S.typed=[]; finish(false); }
+}
+function gradeCold(){
+  const ok=S.target.every((c,i)=>c===S.typed[i]);
+  finish(ok);
+}
+function finish(ok){
+  const it=items[S.id], now=Date.now(); let b=it.box||0, moved=true;
+  if(S.mode==='fade'){ if(b<1){ b=1; it.due=now+IV[1]; } else moved=false; }
+  else if(S.mode==='chunks'){ if(ok){ if(b<2){ b=2; it.due=now+IV[2]; } else moved=false; } else { b=Math.max(1,Math.min(b,1)); it.due=now+IV[1]; } }
+  else { if(ok){ b=Math.min(6,Math.max(b+1,3)); it.due=now+IV[b]; } else { if(b>=2) it.lapses=(it.lapses||0)+1; b=1; it.due=now+IV[1]; } }
+  it.box=b; it.last=now; it.reviews=(it.reviews||0)+1; persist(it.id);
+  if(!S.counted){ S.results[S.qi]=ok; S.modes=S.modes||[]; S.modes[S.qi]=S.mode; S.counted=true; bumpStreak(); }
+  S.phase='done'; S.ok=ok;
+  const when=moved?'Next review '+rel(it.due).toLowerCase()+'.':'Extra practice. Schedule unchanged.';
+  if(S.mode==='cold'&&!ok){ S.msg=`It’s ${splitChunks(it.value).join(' ')}. Back to learning.`; S.msgCls='bad'; }
+  else if(!ok){ S.msg='Done, with a slip or two. '+when; S.msgCls=''; }
+  else { S.msg=(b>=5&&S.mode==='cold'?'Locked in. ':'Perfect. ')+when; S.msgCls='good'; }
+  renderPractice();
+}
+
+/* ---------------- session summary ---------------- */
+function renderDone(){
+  const r=S.results, done=r.filter(x=>x!==undefined).length, right=r.filter(x=>x===true).length;
+  const pct=done?Math.round(right/done*100):0;
+  $('#app').innerHTML=header()+`<section class="summary">
+    <div><span class="label">Session complete</span><div class="big">${pct}<span style="font-size:1.6rem">%</span></div><h2>${pct===100?'Clean sweep.':pct>=70?'Solid work.':'Tough set. It gets easier.'}</h2></div>
+    <div class="stats">
+      <div class="stat"><b>${done}</b><span>Reviewed</span></div>
+      <div class="stat"><b>${right}</b><span>Clean</span></div>
+      <div class="stat"><b>${liveStreak()}</b><span>Day streak</span></div>
+    </div>
+    <div class="results">${S.queue.map((id,i)=>{const it=items[id]; if(!it||r[i]===undefined) return ''; return `<div><span>${esc(it.label)}</span><span class="${r[i]?'r-ok':'r-no'}">${r[i]?STAGE[it.box||0]:(it.box||0)<=1&&S.modes&&S.modes[i]==='cold'?'Back to learning':'With a slip · '+STAGE[it.box||0]}</span></div>`;}).join('')}</div>
+    <button class="btn wide" data-act="home">Done</button>
+  </section>`;
+}
+
+/* ---------------- events ---------------- */
+document.addEventListener('click',e=>{
+  const k=e.target.closest('[data-key]'); if(k){ press(k.dataset.key); return; }
+  const m=e.target.closest('.seg [data-mode]'); if(m&&S){ loadItem(m.dataset.mode); return; }
+  const o=e.target.closest('[data-open]'); if(o){ detailSheet(o.dataset.open); return; }
+  const a=e.target.closest('[data-act]'); if(!a) return;
+  const act=a.dataset.act;
+  if(act==='add') editSheet(null);
+  else if(act==='examples') addExamples();
+  else if(act==='review') startSession(dueList().map(i=>i.id));
+  else if(act==='drill') startSession(all().sort(()=>Math.random()-.5).slice(0,8).map(i=>i.id),{drill:true});
+  else if(act==='practice-one') startSession([a.dataset.id]);
+  else if(act==='edit'){ closeSheet(); editSheet(a.dataset.id); }
+  else if(act==='quit') endSession();
+  else if(act==='again') loadItem(S.mode);
+  else if(act==='next'){ if(S.qi>=S.queue.length-1) endSession(); else nextItem(); }
+  else if(act==='peek') peek();
+  else if(act==='home'){ S=null; view='home'; render(); }
+  else if(act==='copy') copyBackup();
+  else if(act==='restore-open'){ const r=$('#restore'); r.hidden=!r.hidden; if(!r.hidden) $('#bkText').focus(); }
+  else if(act==='restore') restoreBackup();
+});
+document.addEventListener('keydown',e=>{
+  if(sheet){ if(e.key==='Escape') closeSheet(); return; }
+  if(view!=='practice'||!S||e.metaKey||e.ctrlKey||e.altKey) return;
+  if(S.text&&document.activeElement&&document.activeElement.id==='tIn'){ if(e.key==='Enter'&&S.phase==='done'){ const b=$('#nextBtn'); b&&b.click(); } return; }
+  if(/^\d$/.test(e.key)){ e.preventDefault(); const kb=document.querySelector(`.key[data-key="${e.key}"]`); if(kb){kb.classList.add('hit');setTimeout(()=>kb.classList.remove('hit'),90);} press(e.key); }
+  else if(e.key==='Backspace'){ e.preventDefault(); press('del'); }
+  else if(e.key==='Enter'&&S.phase==='done'){ e.preventDefault(); const b=$('#nextBtn'); b&&b.click(); }
+  else if(e.key==='Escape') endSession();
+});
+
+/* ---------------- backup ---------------- */
+async function copyBackup(){
+  const text=JSON.stringify({app:'numbers-by-heart',v:2,saved:new Date().toISOString(),items,stats});
+  try{ await navigator.clipboard.writeText(text); toast('Backup copied. Paste it into Notes to keep it safe.'); }
+  catch(e){ const r=$('#restore'); r.hidden=false; const t=$('#bkText'); t.value=text; t.select(); $('#bkErr').textContent='Copy this text yourself.'; }
+}
+function restoreBackup(){
+  try{
+    const data=JSON.parse($('#bkText').value.trim()), got=data&&data.items;
+    if(!got||typeof got!=='object') throw 0;
+    const clean={}; Object.values(got).forEach(it=>{ if(it&&it.id&&it.label&&it.value) clean[it.id]=it; });
+    if(!Object.keys(clean).length) throw 0;
+    const old=Object.keys(items);
+    items=clean; if(data.stats) stats=Object.assign(stats,data.stats);
+    if(store==='db'){ old.filter(id=>!clean[id]).forEach(id=>persist(id)); Object.keys(clean).forEach(id=>persist(id)); persist('stats'); } else saveLocal();
+    render(); toast('Restored '+Object.keys(clean).length+' numbers.');
+  }catch(e){ $('#bkErr').textContent='That isn’t a backup from this app. Paste the whole text from Copy backup.'; }
+}
+
+let tt; function toast(t){ const el=$('#toast'); el.textContent=t; el.hidden=false; clearTimeout(tt); tt=setTimeout(()=>el.hidden=true,2600); }
+setInterval(()=>{ if(view==='home'&&!sheet) render(); },30000);
+render(); initStore();
+})();
+</script>
+<script>if('serviceWorker' in navigator){addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));}</script>
+</body>
+</html>
